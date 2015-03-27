@@ -1,5 +1,5 @@
+%option noyywrap
 %{
-#define yywrap() 1
 
 #define T_eof			300
 #define T_id			301
@@ -52,8 +52,8 @@ int nested_comments;
 
 L	[A-Za-z]
 D	[0-9]
-HEX	{D}|[abcdef]
-W	[ \t]
+HEX	{D}|[a-fA-F]
+W	[ \t\r\f]
 T1	[\+\-\*#=<>/]
 T21	"<>"
 T22	"<="
@@ -107,12 +107,17 @@ ES	(\\.)|("\\x"{HEX}{HEX})
 {S1}					{ return yytext[0]; }
 ":="					{ return T_assign; }
 
-\'(.|{ES})\'			{			//yytext[0] == "\'"
-						  yytext[0] = (yytext[1] == '\\') ? escseqfun(yytext+2) : yytext[1];
+\'[^\'\"\\]\'			{
+						  yytext[0] = yytext[1];
 						  yytext[1] = '\0';
 						  return T_constchar;
 						}
-\'.+\'					{ yyerror("invalid character"); }
+\'{ES}\'				{			//yytext[0] == "\'"
+						  yytext[0] = escseqfun(yytext+2);
+						  yytext[1] = '\0';
+						  return T_constchar;
+						}
+
 						
 \"						{ BEGIN(STRING); copylen = 0; }
 <STRING>\"				{
@@ -126,13 +131,13 @@ ES	(\\.)|("\\x"{HEX}{HEX})
 <STRING><<EOF>>			{ yyerror("unterminated string\n"); }
 <STRING>[^\\\"\n]+		{ strcpy(yycopy+copylen,yytext); copylen = copylen + yyleng; }
 
-\%(.)+\n				{ lineno++; }
+\%(.)*\n				{ lineno++; }
 
 "<*"					{ BEGIN(COMMENTS); nested_comments = 0; }
 <COMMENTS>\n			{ lineno++; }
 <COMMENTS>"<*"			{ nested_comments++; }
 <COMMENTS>"*>"			{ nested_comments--; if (nested_comments<0) BEGIN(INITIAL); }
-<COMMENTS>\*				{ /* nothing */ }
+<COMMENTS>\*			{ /* nothing */ }
 <COMMENTS><				{ /* nothing */ }
 <COMMENTS><<EOF>>		{ yyerror("unterminated comments\n"); }
 <COMMENTS>[^\*\<\n]		{ /* nothing */ }
@@ -163,10 +168,12 @@ char escseqfun(char *s)
 		case '\'' :		return '\'';
 		case '\"' :		return '\"';
 		case 'x' :		
-			if ((s[2]>='a')&&(s[2]<='z'))  c = s[2]-'a'+10;
+			if ((s[2]>='a')&&(s[2]<='f'))  c = s[2]-'a'+10;
+			else if ((s[2]>='A')&&(s[2]<='F')) c = s[2]-'A'+10;
 			else if ((s[2]>='0')&&(s[2]<='9')) c = s[2]-'0';
 			else return 'x';
-			if ((s[1]>='a')&&(s[1]<='z'))  c += (s[1]-'a'+10)*16;
+			if ((s[1]>='a')&&(s[1]<='f'))  c += (s[1]-'a'+10)*16;
+			else if ((s[1]>='A')&&(s[1]<='F')) c += (s[1]-'A')*16;
 			else if ((s[1]>='0')&&(s[1]<='9')) c += (s[1]-'0')*16;
 			else return 'x';
 			return c;
