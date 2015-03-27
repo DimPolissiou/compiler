@@ -1,5 +1,5 @@
+%option noyywrap
 %{
-#define yywrap() 1
 
 #define T_eof			300
 #define T_id			301
@@ -7,52 +7,63 @@
 #define T_constchar		303
 #define T_constbool		304
 #define T_conststring	305
-#define T_and			305
-#define T_bool			306
-#define T_char			307
-#define T_decl			308
-#define T_def			309
-#define T_else			310
-#define T_elsif			311
-#define T_end			312
-#define T_exit			313
-#define T_false			314
-#define T_for			315
-#define T_head			316
-#define T_if			317
-#define T_int			318
-#define T_list			319
-#define T_mod			320
-#define T_new			321
-#define T_nil			322
-#define T_nil_is		323
-#define T_not			324
-#define T_or			325
-#define T_ref			326
-#define T_return		327
-#define T_skip			328
-#define T_tail			329
-#define T_true			330
+#define T_dif			306
+#define T_leq			307
+#define T_geq			308
+#define T_assign		309
+#define T_and			400
+#define T_bool			401
+#define T_char			402
+#define T_decl			403
+#define T_def			404
+#define T_else			405
+#define T_elsif			406
+#define T_end			407
+#define T_exit			408
+#define T_false			409
+#define T_for			410
+#define T_head			411
+#define T_if			412
+#define T_int			413
+#define T_list			414
+#define T_mod			415
+#define T_new			416
+#define T_nil			417
+#define T_nil_is		418
+#define T_not			419
+#define T_or			420
+#define T_ref			421
+#define T_return		422
+#define T_skip			423
+#define T_tail			424
+#define T_true			425
 
 #include <string.h>
 
 void yyerror(const char msg[]);
+char escseqfun(char *s);
 int lineno = 1;
+
 char yycopy[1000];
 int copylen;
+
+int nested_comments;
 %}
 
 L	[A-Za-z]
 D	[0-9]
-HEX	{D}|[abcdef]
-W	[ \t]
+HEX	{D}|[a-fA-F]
+W	[ \t\r\f]
 T1	[\+\-\*#=<>/]
-T2	"<>"|"<="|">="
-S1 	[()\[\],;:]
-S2 	":="
-ES 	"\\n"|"\\t"|"\\r"|"\\0"|"\\"|"\\\'"|"\\\""|("\\x"{HEX}{HEX})
+T21	"<>"
+T22	"<="
+T23	">="
+S1	[()\[\],;:]
+S2	":="
+ES	(\\.)|("\\x"{HEX}{HEX})
 
 %x STRING
+%x COMMENTS
 
 
 %%
@@ -89,37 +100,49 @@ ES 	"\\n"|"\\t"|"\\r"|"\\0"|"\\"|"\\\'"|"\\\""|("\\x"{HEX}{HEX})
 {W}+					{ /* nothing */ }
 {L}({L}|{D}|_|\?)*		{ return T_id; }
 {D}+					{ return T_constint; }
-\'(.|{ES})\'			{
-						  strcpy(yycopy,yytext+1); 		//afairw ta ''
-						  yycopy[strlen(yycopy)-1] = '\0'; 
-						  strcpy(yytext,yycopy);		//ginetai strcpy giati |yycopy| < |yytext|
+{T1}					{ return yytext[0]; }
+"<>"					{ return T_dif; }
+"<="					{ return T_leq; }
+">="					{ return T_geq; }
+{S1}					{ return yytext[0]; }
+":="					{ return T_assign; }
+
+\'[^\'\"\\]\'			{
+						  yytext[0] = yytext[1];
+						  yytext[1] = '\0';
 						  return T_constchar;
 						}
+\'{ES}\'				{			//yytext[0] == "\'"
+						  yytext[0] = escseqfun(yytext+2);
+						  yytext[1] = '\0';
+						  return T_constchar;
+						}
+
 						
 \"						{ BEGIN(STRING); copylen = 0; }
 <STRING>\"				{
 						  BEGIN(INITIAL);
 						  yycopy[copylen]='\0';
-						  yytext=strdup(yycopy);	//thelei strdup giati sto telos |yytext|=1
+						  yytext=strdup(yycopy);	//thelei strdup giati sto telos |yytext|=1 < |yycopy|
 						  return T_conststring; 
 						}
-<STRING>{
-	"\\."				{ yycopy[copylen++] = foo(yytext[1]; }
-
-	"\\n"				{ yycopy[copylen++]='\n'; }
-	"\\t"				{ yycopy[copylen++]='\t'; }
-	"\\r"				{ yycopy[copylen++]='\r'; }
-	"\\0"				{ yycopy[copylen++]='\0'; }
-	"\\"				{ yycopy[copylen++]='\\'; }
-	"\\\'"				{ yycopy[copylen++]='\''; }
-	"\\\""				{ yycopy[copylen++]='\"'; }
-	("\\x"{HEX}{HEX})	{ yycopy[copylen++]='\'; }
-}
+<STRING>{ES}			{ yycopy[copylen++] = escseqfun(yytext+1); }
 <STRING>\n				{ yyerror("strings must extend to only one line\n"); }
 <STRING><<EOF>>			{ yyerror("unterminated string\n"); }
 <STRING>[^\\\"\n]+		{ strcpy(yycopy+copylen,yytext); copylen = copylen + yyleng; }
 
-.						{ /*yyerror("Illegal token.\n");*/ }
+\%(.)*\n				{ lineno++; }
+
+"<*"					{ BEGIN(COMMENTS); nested_comments = 0; }
+<COMMENTS>\n			{ lineno++; }
+<COMMENTS>"<*"			{ nested_comments++; }
+<COMMENTS>"*>"			{ nested_comments--; if (nested_comments<0) BEGIN(INITIAL); }
+<COMMENTS>\*			{ /* nothing */ }
+<COMMENTS><				{ /* nothing */ }
+<COMMENTS><<EOF>>		{ yyerror("unterminated comments\n"); }
+<COMMENTS>[^\*\<\n]		{ /* nothing */ }
+
+.						{ yyerror("Illegal token.\n"); }
 
 
 %%
@@ -131,6 +154,32 @@ void yyerror(const char msg[])
 	exit(1);
 }
 
+char escseqfun(char *s)
+{
+	char c;
+	
+	switch (s[0])
+	{
+		case 'n' :		return '\n';
+		case 't' :		return '\t';
+		case 'r' :		return '\r';
+		case '0' :		return '\0';
+		case '\\' :		return '\\';
+		case '\'' :		return '\'';
+		case '\"' :		return '\"';
+		case 'x' :		
+			if ((s[2]>='a')&&(s[2]<='f'))  c = s[2]-'a'+10;
+			else if ((s[2]>='A')&&(s[2]<='F')) c = s[2]-'A'+10;
+			else if ((s[2]>='0')&&(s[2]<='9')) c = s[2]-'0';
+			else return 'x';
+			if ((s[1]>='a')&&(s[1]<='f'))  c += (s[1]-'a'+10)*16;
+			else if ((s[1]>='A')&&(s[1]<='F')) c += (s[1]-'A')*16;
+			else if ((s[1]>='0')&&(s[1]<='9')) c += (s[1]-'0')*16;
+			else return 'x';
+			return c;
+		default :		return s[0];
+	}
+}
 
 int main(int argc , char **argv)
 {
@@ -140,9 +189,10 @@ int main(int argc , char **argv)
 	printf("\n\n");
 	while((token=yylex()) != 0)
 	{
-		printf("token: %d  ,  lexeme: %s\n",token,yytext);
+		printf("token: %3d  ,  lexeme: %s\n",token,yytext);
 	}
 	printf("\n\n");
 	
 	return 0;
 }
+
