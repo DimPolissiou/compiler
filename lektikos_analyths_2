@@ -140,7 +140,7 @@ ES	(\\.)|("\\x"{HEX}{HEX})
 <COMMENTS>\*			{ /* nothing */ }
 <COMMENTS><				{ /* nothing */ }
 <COMMENTS><<EOF>>		{ yyerror("unterminated comments\n"); }
-<COMMENTS>[^\*\<\n]		{ /* nothing */ }
+<COMMENTS>[^\*\<\n]+		{ /* nothing */ }
 
 .						{ yyerror("Illegal token.\n"); }
 
