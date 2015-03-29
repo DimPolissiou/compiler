@@ -1,5 +1,14 @@
 %option noyywrap
 %{
+/***************************************************************************
+  Course    : Compilers - Assignment 1 - Lexer
+  Authors   : Γαλανόπουλος Δημήτρης (dimgal9@gmail.com)
+			  Πολυσίου Δημήτριος (dimpolissiou@gmail.com)
+  Date      : March 29, 2015
+  Note      : Written for the Tony language, using flex and gcc
+  -----------
+  School of ECE, National Technical University of Athens.
+****************************************************************************/
 
 #define T_eof			300
 #define T_id			301
@@ -140,7 +149,7 @@ ES	(\\.)|("\\x"{HEX}{HEX})
 <COMMENTS>\*			{ /* nothing */ }
 <COMMENTS><				{ /* nothing */ }
 <COMMENTS><<EOF>>		{ yyerror("unterminated comments\n"); }
-<COMMENTS>[^\*\<\n]+		{ /* nothing */ }
+<COMMENTS>[^\*\<\n]+	{ /* nothing */ }
 
 .						{ yyerror("Illegal token.\n"); }
 
