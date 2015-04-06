@@ -47,6 +47,7 @@ int yylex();
 %token T_new "new"
 %token T_nil "nil"
 %token T_nil_is "nil?"
+%token T_not "not"
 %token T_or "or"
 %token T_ref "ref"
 %token T_return "return"
@@ -61,7 +62,7 @@ int yylex();
 
 %left "or"
 %left "and"
-%token T_not "not"
+%left "not"
 %nonassoc '=' '<' '>' "<>" "<=" ">="
 %right '#'
 %left '+' '-'
@@ -89,7 +90,7 @@ formal		: type id_list {}
 			;
 			
 id_list		: "id" {}
-			| "id" ',' id_list {}
+			| id_list ',' "id" {}
 			;
 			
 type		: "int" {}
@@ -124,7 +125,7 @@ elsif_stmt	: "elsif" expr ':' stmt_list {}
 			;
 
 stmt_list	: stmt { }
-			| stmt stmt_list { }
+			| stmt_list stmt { }
 			; 
 			
 simple		: "skip" {}
