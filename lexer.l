@@ -76,8 +76,8 @@ ES	(\\.)|("\\x"{HEX}{HEX})
 
 \n						{ lineno++; }
 {W}+					{ /* nothing */ }
-{L}({L}|{D}|_|\?)*		{ return T_id; }
-{D}+					{ return T_constint; }
+{L}({L}|{D}|_|\?)*		{ yylval.n = (char *)malloc(strlen(yytext) +1);	strcpy(yylval.n, yytext); return T_id; }
+{D}+					{ yylval.integer = atoi(yytext); return T_constint; }
 {T1}					{ return yytext[0]; }
 "<>"					{ return T_dif; }
 "<="					{ return T_leq; }
@@ -88,11 +88,13 @@ ES	(\\.)|("\\x"{HEX}{HEX})
 \'[^\'\"\\]\'			{
 						  yytext[0] = yytext[1];
 						  yytext[1] = '\0';
+						  yylval.chr = yytext[0];
 						  return T_constchar;
 						}
 \'{ES}\'				{
 						  yytext[0] = escseqfun(yytext+2);
 						  yytext[1] = '\0';
+						  yylval.chr = yytext[0];
 						  return T_constchar;
 						}
 
@@ -102,6 +104,8 @@ ES	(\\.)|("\\x"{HEX}{HEX})
 						  BEGIN(INITIAL);
 						  yycopy[copylen]='\0';
 						  yytext=strdup(yycopy);
+						  yylval.s = (char *)malloc(strlen(yytext) +1);
+						  strcpy(yylval.s, yytext);
 						  return T_conststring; 
 						}
 <STRING>{ES}			{ yycopy[copylen++] = escseqfun(yytext+1); }
